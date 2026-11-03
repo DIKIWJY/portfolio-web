@@ -1,0 +1,19 @@
+# Portfolio
+
+> Personal developer portfolio with a private admin panel, built with Astro (SSR), Tailwind CSS,
+> React islands, and Supabase (PostgreSQL, Auth, Storage). Deployed on Vercel.
+
+Content (profile, projects, experience, skills) is stored in Supabase and edited from `/admin`.
+Public pages are server-rendered and read only published rows through Row Level Security.
+The contact form saves messages to the database.
+
+## Stack
+
+- Astro 7 (output: server) with the Vercel adapter
+- Tailwind CSS, React 19 (LetterGlitch hero effect)
+- Supabase: Auth (email/password, sign-ups disabled), Postgres with RLS, Storage bucket `project-images`
+- Montserrat (teks) dan Lora (judul), keduanya self-hosted. Lora memakai lisensi SIL OFL 1.1.
+
+## Credits
+
+Based on the MIT-licensed DarkMinimal template by Andres Hernandez (see LICENSE).

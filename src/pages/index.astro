@@ -1,0 +1,40 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Nav from "@/components/nav.astro";
+import Home from "@/components/home.astro";
+import Projects from "@/components/projects.astro";
+import About from "@/components/about.astro";
+import Experience from "@/components/experience.astro";
+import Contact from "@/components/contact.astro";
+import Footer from "@/components/footer.astro";
+import { getExperiences, getProjects, getSettings } from "@/lib/data";
+import { techIcons } from "@/lib/techIcons";
+
+const [settings, projects, experiences] = await Promise.all([
+  getSettings(),
+  getProjects(),
+  getExperiences(),
+]);
+
+// Ikon teknologi diambil dari keahlian dan stack proyek yang benar-benar tercantum.
+const techs = techIcons([
+  ...settings.skills.flatMap((g) => g.items),
+  ...projects.flatMap((p) => p.stack),
+]);
+
+// Cache singkat di CDN Vercel: cepat untuk pengunjung, perubahan admin tetap terlihat dalam hitungan detik.
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=15, stale-while-revalidate=120",
+);
+---
+
+<Layout settings={settings} image={projects.find((p) => p.cover_url)?.cover_url}>
+  <Nav hasExperience={experiences.length > 0} cvUrl={settings.cv_url} />
+  <Home settings={settings} techs={techs} />
+  <Projects projects={projects} settings={settings} />
+  <About settings={settings} />
+  <Experience items={experiences} />
+  <Contact settings={settings} />
+  <Footer settings={settings} />
+</Layout>

@@ -1,0 +1,64 @@
+---
+import ProjectCard from "@/components/ProjectCard.astro";
+import { featuredFirst } from "@/lib/data";
+import { safeUrl } from "@/lib/format";
+import type { Project, SiteSettings } from "@/lib/types";
+
+interface Props {
+  projects: Project[];
+  settings: SiteSettings;
+  limit?: number;
+}
+
+const { projects, settings, limit = 4 } = Astro.props;
+const shown = featuredFirst(projects).slice(0, limit);
+const hasMore = projects.length > shown.length;
+const github = safeUrl(settings.github_url);
+
+const pill =
+  "w-full flex items-center justify-center gap-2 text-[var(--white-icon)] hover:text-[var(--white)] transition duration-300 ease-in-out border border-[var(--white-icon-tr)] p-3 rounded-full bg-[color:var(--panel)] hover:bg-[var(--white-icon-tr)]";
+---
+
+<section
+  id="projects"
+  class="py-20 md:py-28 border-t border-[color:var(--line)] text-[var(--white)]"
+>
+  <div class="max-w-5xl mx-auto">
+    <h2 class="eyebrow mb-3 rv">My work</h2>
+    <h3 class="display text-4xl md:text-5xl leading-[1.1] mb-8 rv" style="--d:.08s">Projects</h3>
+
+    {
+      shown.length === 0 ? (
+        <p class="text-[var(--white-icon)] border border-dashed border-[var(--white-icon-tr)] rounded-xl p-10 text-center">
+          Projects will appear here soon.
+        </p>
+      ) : (
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12">
+          {shown.map((project, i) => (
+            <ProjectCard project={project} index={i} />
+          ))}
+        </div>
+      )
+    }
+
+    <div class="flex flex-col sm:flex-row gap-3 mt-10">
+      {
+        hasMore && (
+          <a href="/projects" class={pill}>
+            <span class="md:text-lg text-md">View all {projects.length} projects</span>
+          </a>
+        )
+      }
+      {
+        github && (
+          <a href={github} target="_blank" rel="noopener noreferrer" class={pill}>
+            <span class="md:text-lg text-md">More on GitHub</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6" aria-hidden="true">
+              <path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.1-1.47-1.1-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.9.83.09-.65.35-1.08.63-1.33-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.8c.85 0 1.7.11 2.5.34 1.9-1.29 2.74-1.02 2.74-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 22 12c0-5.52-4.48-10-10-10z" />
+            </svg>
+          </a>
+        )
+      }
+    </div>
+  </div>
+</section>

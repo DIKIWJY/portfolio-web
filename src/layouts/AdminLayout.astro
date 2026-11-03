@@ -1,0 +1,136 @@
+---
+import "@/styles/admin.css";
+import { icons } from "@/lib/icons";
+import { FLASH } from "@/lib/admin";
+import { getSettings } from "@/lib/data";
+import { initials } from "@/lib/format";
+
+interface Props {
+  title: string;
+  active: "overview" | "projects" | "experience" | "messages" | "settings";
+}
+
+const { title, active } = Astro.props;
+const { supabase, user } = Astro.locals;
+
+const settings = await getSettings();
+
+let unread = 0;
+try {
+  const { count } = await supabase
+    .from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("is_read", false);
+  unread = count ?? 0;
+} catch {
+  unread = 0;
+}
+
+const flash = FLASH[Astro.url.searchParams.get("ok") ?? ""];
+
+const nav = [
+  { key: "overview", href: "/admin", label: "Ringkasan", icon: icons.overview },
+  { key: "projects", href: "/admin/projects", label: "Proyek", icon: icons.projects },
+  { key: "experience", href: "/admin/experience", label: "Pengalaman", icon: icons.briefcase },
+  { key: "messages", href: "/admin/messages", label: "Pesan", icon: icons.messages },
+  { key: "settings", href: "/admin/settings", label: "Profil", icon: icons.settings },
+] as const;
+---
+
+<!doctype html>
+<html lang="id" class="admin">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link
+      rel="preload"
+      href="/fonts/montserrat-latin-wght-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin="anonymous"
+    />
+    <title>{title} | Admin</title>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">
+          <div class="brand-mark">{initials(settings.full_name)}</div>
+          <div style="min-width:0">
+            <div class="brand-name">{settings.full_name}</div>
+            <div class="brand-sub">Panel admin</div>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="Menu admin">
+          {
+            nav.map((item) => (
+              <a
+                href={item.href}
+                aria-current={active === item.key ? "page" : undefined}
+              >
+                <Fragment set:html={item.icon} />
+                <span>{item.label}</span>
+                {item.key === "messages" && unread > 0 && (
+                  <span class="count" aria-label={`${unread} pesan belum dibaca`}>
+                    {unread}
+                  </span>
+                )}
+              </a>
+            ))
+          }
+        </nav>
+
+        <div class="side-foot">
+          <div class="who" title={user?.email ?? ""}>{user?.email}</div>
+          <div class="row-links">
+            <a class="btn btn-sm" href="/" target="_blank" rel="noopener">
+              <Fragment set:html={icons.globe} />
+              Lihat situs
+            </a>
+            <form method="post" action="/admin/logout">
+              <button class="btn btn-sm btn-ghost" type="submit">
+                <Fragment set:html={icons.logout} />
+                Keluar
+              </button>
+            </form>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <slot />
+      </main>
+    </div>
+
+    {
+      flash && (
+        <div class="toast" role="status">
+          <Fragment set:html={icons.check} />
+          {flash}
+        </div>
+      )
+    }
+
+    <script>
+      // Bersihkan ?ok=... dari URL supaya notifikasi tidak muncul lagi saat refresh.
+      const url = new URL(location.href);
+      if (url.searchParams.has("ok")) {
+        url.searchParams.delete("ok");
+        history.replaceState(null, "", url.pathname + url.search + url.hash);
+      }
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  @font-face {
+    font-family: "Montserrat Variable";
+    src: url("/fonts/montserrat-latin-wght-normal.woff2") format("woff2-variations");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+  }
+</style>

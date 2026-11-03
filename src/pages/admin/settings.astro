@@ -1,0 +1,228 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { icons } from "@/lib/icons";
+import { safeUrl } from "@/lib/format";
+import { getSettings } from "@/lib/data";
+import type { SiteSettings } from "@/lib/types";
+
+const { supabase } = Astro.locals;
+
+const SLOTS = [0, 1, 2, 3];
+
+let values: SiteSettings = await getSettings();
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const fd = await Astro.request.formData();
+  const str = (k: string, max: number) => String(fd.get(k) ?? "").trim().slice(0, max);
+
+  const highlights: SiteSettings["highlights"] = [];
+  const skills: SiteSettings["skills"] = [];
+  for (const i of SLOTS) {
+    const value = str(`hl_value_${i}`, 12);
+    const label = str(`hl_label_${i}`, 60);
+    if (value && !label) errors[`hl_${i}`] = "Isi keterangan untuk angka ini.";
+    else if (!value && label) errors[`hl_${i}`] = "Isi angkanya (mis. 3+).";
+    else if (value && label) highlights.push({ value, label });
+
+    const group = str(`sk_group_${i}`, 40);
+    const items = str(`sk_items_${i}`, 400)
+      .split(",")
+      .map((s) => s.trim().slice(0, 30))
+      .filter(Boolean)
+      .slice(0, 16);
+    if (group && items.length === 0) errors[`sk_${i}`] = "Isi daftar keahliannya, pisahkan dengan koma.";
+    else if (!group && items.length > 0) errors[`sk_${i}`] = "Isi nama kelompoknya (mis. Backend).";
+    else if (group && items.length > 0) skills.push({ group, items });
+  }
+
+  const next: SiteSettings = {
+    full_name: str("full_name", 80),
+    headline: str("headline", 80),
+    tagline: str("tagline", 240),
+    location: str("location", 80),
+    email: str("email", 200),
+    github_url: str("github_url", 300),
+    linkedin_url: str("linkedin_url", 300),
+    cv_url: str("cv_url", 400),
+    available: fd.get("available") === "on",
+    availability_note: str("availability_note", 100),
+    about: str("about", 1500),
+    highlights,
+    skills,
+  };
+
+  if (!next.full_name) errors.full_name = "Nama wajib diisi.";
+  if (!next.headline) errors.headline = "Headline wajib diisi.";
+  if (next.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next.email)) errors.email = "Email belum valid.";
+  for (const key of ["github_url", "linkedin_url", "cv_url"] as const) {
+    if (next[key] && !safeUrl(next[key])) errors[key] = "Link harus diawali http:// atau https://.";
+    else next[key] = safeUrl(next[key]) ?? "";
+  }
+
+  values = next;
+  if (Object.keys(errors).length === 0) {
+    const { error } = await supabase.from("site_settings").upsert({ id: 1, ...next });
+    if (error) errors.form = `Gagal menyimpan: ${error.message}`;
+    else return Astro.redirect("/admin/settings?ok=settings-saved");
+  }
+}
+
+const hl = SLOTS.map((i) => values.highlights[i] ?? { value: "", label: "" });
+const sk = SLOTS.map((i) => ({
+  group: values.skills[i]?.group ?? "",
+  items: (values.skills[i]?.items ?? []).join(", "),
+}));
+---
+
+<AdminLayout title="Profil" active="settings">
+  <div class="page-head">
+    <div>
+      <h1>Profil</h1>
+      <p class="lede">Semua teks di beranda berasal dari sini. Bagian yang dikosongkan otomatis disembunyikan.</p>
+    </div>
+  </div>
+
+  <form method="post" novalidate style="max-width:760px">
+    {errors.form && <div class="alert" role="alert">{errors.form}</div>}
+
+    <div class="stack-v">
+      <section class="panel">
+        <div class="panel-body stack-v">
+          <div>
+            <h2 class="section-title">Perkenalan</h2>
+            <p class="section-sub">Hal pertama yang dilihat HRD. Sebut posisi yang Anda lamar dengan jelas.</p>
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="full_name">Nama lengkap</label>
+              <input class="input" id="full_name" name="full_name" value={values.full_name} maxlength="80" aria-invalid={errors.full_name ? "true" : undefined} />
+              {errors.full_name && <span class="err">{errors.full_name}</span>}
+            </div>
+            <div class="field">
+              <label for="headline">Posisi yang dituju</label>
+              <input class="input" id="headline" name="headline" value={values.headline} maxlength="80" placeholder="Backend Engineer" aria-invalid={errors.headline ? "true" : undefined} />
+              {errors.headline && <span class="err">{errors.headline}</span>}
+            </div>
+          </div>
+          <div class="field">
+            <label for="tagline">Kalimat pembuka</label>
+            <textarea class="textarea" id="tagline" name="tagline" maxlength="240" style="min-height:90px">{values.tagline}</textarea>
+            <span class="hint">Satu sampai dua kalimat: apa yang Anda bangun dan nilai yang Anda bawa untuk tim.</span>
+          </div>
+          <div class="field">
+            <label for="location">Lokasi</label>
+            <input class="input" id="location" name="location" value={values.location} maxlength="80" placeholder="Malang, Indonesia" />
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-body stack-v">
+          <div>
+            <h2 class="section-title">Ketersediaan</h2>
+            <p class="section-sub">Lencana hijau di bagian paling atas beranda. HRD langsung tahu Anda siap direkrut.</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" name="available" checked={values.available} />
+            <span class="t">Terbuka untuk pekerjaan<span class="d">Matikan kalau sudah tidak mencari.</span></span>
+          </label>
+          <div class="field">
+            <label for="availability_note">Keterangan singkat</label>
+            <input class="input" id="availability_note" name="availability_note" value={values.availability_note} maxlength="100" placeholder="Backend Engineer, Jabodetabek atau remote" />
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-body stack-v">
+          <div>
+            <h2 class="section-title">Angka sorotan</h2>
+            <p class="section-sub">Sampai 4 angka yang tampil di kartu hero. Pakai hanya angka yang bisa Anda buktikan. Contoh: 3 proyek di produksi, 120 pengguna aktif, 40% lebih cepat.</p>
+          </div>
+          {
+            hl.map((h, i) => (
+              <div class="field">
+                <div style="display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px">
+                  <input class="input" name={`hl_value_${i}`} value={h.value} maxlength="12" placeholder="3+" aria-label={`Angka ${i + 1}`} />
+                  <input class="input" name={`hl_label_${i}`} value={h.label} maxlength="60" placeholder="Sistem berjalan di produksi" aria-label={`Keterangan angka ${i + 1}`} />
+                </div>
+                {errors[`hl_${i}`] && <span class="err">{errors[`hl_${i}`]}</span>}
+              </div>
+            ))
+          }
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-body stack-v">
+          <div>
+            <h2 class="section-title">Tentang saya dan keahlian</h2>
+            <p class="section-sub">Tuliskan hal yang membedakan Anda dari pelamar lain, lalu kelompokkan keahlian utama.</p>
+          </div>
+          <div class="field">
+            <label for="about">Tentang saya</label>
+            <textarea class="textarea" id="about" name="about" maxlength="1500" placeholder="Pisahkan paragraf dengan baris kosong.">{values.about}</textarea>
+          </div>
+          <div class="stack-v">
+            <span class="label-like">Kelompok keahlian</span>
+            {
+              sk.map((g, i) => (
+                <div class="field">
+                  <div style="display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px">
+                    <input class="input" name={`sk_group_${i}`} value={g.group} maxlength="40" placeholder="Backend" aria-label={`Kelompok ${i + 1}`} />
+                    <input class="input" name={`sk_items_${i}`} value={g.items} maxlength="400" placeholder="Go, Node.js, PostgreSQL, Redis" aria-label={`Keahlian kelompok ${i + 1}`} />
+                  </div>
+                  {errors[`sk_${i}`] && <span class="err">{errors[`sk_${i}`]}</span>}
+                </div>
+              ))
+            }
+            <span class="hint">Pisahkan keahlian dengan koma. Ikon di bawah hero hanya muncul untuk teknologi yang tercantum di sini.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-body stack-v">
+          <div>
+            <h2 class="section-title">Kontak dan tautan</h2>
+            <p class="section-sub">Kosongkan yang tidak dipakai. Ikonnya otomatis disembunyikan.</p>
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input class="input" id="email" name="email" type="email" value={values.email} placeholder="nama@email.com" aria-invalid={errors.email ? "true" : undefined} />
+            {errors.email && <span class="err">{errors.email}</span>}
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="github_url">GitHub</label>
+              <input class="input" id="github_url" name="github_url" type="url" value={values.github_url} placeholder="https://github.com/username" aria-invalid={errors.github_url ? "true" : undefined} />
+              {errors.github_url && <span class="err">{errors.github_url}</span>}
+            </div>
+            <div class="field">
+              <label for="linkedin_url">LinkedIn</label>
+              <input class="input" id="linkedin_url" name="linkedin_url" type="url" value={values.linkedin_url} placeholder="https://linkedin.com/in/username" aria-invalid={errors.linkedin_url ? "true" : undefined} />
+              {errors.linkedin_url && <span class="err">{errors.linkedin_url}</span>}
+            </div>
+          </div>
+          <div class="field">
+            <label for="cv_url">Link CV</label>
+            <input class="input" id="cv_url" name="cv_url" type="url" value={values.cv_url} placeholder="https://drive.google.com/..." aria-invalid={errors.cv_url ? "true" : undefined} />
+            {errors.cv_url ? <span class="err">{errors.cv_url}</span> : <span class="hint">Jika diisi, tombol Download CV muncul di beranda dan di pojok kanan atas.</span>}
+          </div>
+        </div>
+      </section>
+
+      <div class="savebar" style="justify-content:flex-end">
+        <button class="btn btn-primary" type="submit" style="flex:none">Simpan profil</button>
+      </div>
+    </div>
+  </form>
+
+  <form method="post" action="/admin/logout" class="only-mobile" style="margin-top:28px">
+    <button class="btn" type="submit">
+      <Fragment set:html={icons.logout} />
+      Keluar
+    </button>
+  </form>
+</AdminLayout>

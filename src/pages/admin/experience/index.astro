@@ -1,0 +1,122 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { icons } from "@/lib/icons";
+import { moveRow } from "@/lib/admin";
+import type { Experience } from "@/lib/types";
+
+const { supabase } = Astro.locals;
+
+if (Astro.request.method === "POST") {
+  const fd = await Astro.request.formData();
+  const action = String(fd.get("action") ?? "");
+  const id = String(fd.get("id") ?? "");
+  if (id) {
+    if (action === "move") {
+      await moveRow(supabase, "experiences", id, fd.get("dir") === "up" ? "up" : "down");
+      return Astro.redirect("/admin/experience?ok=project-moved");
+    }
+    if (action === "toggle") {
+      await supabase.from("experiences").update({ published: fd.get("value") === "true" }).eq("id", id);
+      return Astro.redirect("/admin/experience?ok=project-toggled");
+    }
+    if (action === "delete") {
+      await supabase.from("experiences").delete().eq("id", id);
+      return Astro.redirect("/admin/experience?ok=experience-deleted");
+    }
+  }
+}
+
+const { data } = await supabase
+  .from("experiences")
+  .select("*")
+  .order("sort_order", { ascending: true })
+  .order("created_at", { ascending: false });
+const items = (data ?? []) as Experience[];
+---
+
+<AdminLayout title="Pengalaman" active="experience">
+  <div class="page-head">
+    <div>
+      <h1>Pengalaman</h1>
+      <p class="lede">Urutan di sini sama dengan garis waktu di situs. Taruh yang terbaru di atas.</p>
+    </div>
+    <a class="btn btn-primary" href="/admin/experience/new">
+      <Fragment set:html={icons.plus} />
+      Tambah pengalaman
+    </a>
+  </div>
+
+  <section class="panel">
+    {
+      items.length === 0 ? (
+        <div class="empty">
+          <strong>Belum ada pengalaman</strong>
+          <span>Magang, proyek freelance, dan organisasi juga dihitung. HRD ingin melihat Anda pernah bekerja dalam tim.</span>
+          <a class="btn btn-primary" href="/admin/experience/new">
+            <Fragment set:html={icons.plus} />
+            Tambah pengalaman pertama
+          </a>
+        </div>
+      ) : (
+        items.map((x, i) => (
+          <div class="prow" style="grid-template-columns:minmax(0,1fr) auto">
+            <div style="min-width:0">
+              <a class="ptitle" href={`/admin/experience/${x.id}`} style="display:block">
+                {x.role} <span class="muted" style="font-weight:400">di {x.company}</span>
+              </a>
+              <div class="pmeta">
+                <form method="post" style="display:contents">
+                  <input type="hidden" name="action" value="toggle" />
+                  <input type="hidden" name="id" value={x.id} />
+                  <input type="hidden" name="value" value={String(!x.published)} />
+                  <button class:list={["pill", "toggle-pill", { live: x.published }]} type="submit" title={x.published ? "Klik untuk sembunyikan" : "Klik untuk tampilkan"}>
+                    {x.published ? "Tampil" : "Draf"}
+                  </button>
+                </form>
+                {x.is_current && <span class="pill star">Berjalan</span>}
+                {x.period && <span>{x.period}</span>}
+              </div>
+            </div>
+            <div class="actions">
+              <form method="post">
+                <input type="hidden" name="action" value="move" />
+                <input type="hidden" name="id" value={x.id} />
+                <input type="hidden" name="dir" value="up" />
+                <button class="btn btn-icon" type="submit" aria-label="Naikkan" disabled={i === 0}>
+                  <Fragment set:html={icons.up} />
+                </button>
+              </form>
+              <form method="post">
+                <input type="hidden" name="action" value="move" />
+                <input type="hidden" name="id" value={x.id} />
+                <input type="hidden" name="dir" value="down" />
+                <button class="btn btn-icon" type="submit" aria-label="Turunkan" disabled={i === items.length - 1}>
+                  <Fragment set:html={icons.down} />
+                </button>
+              </form>
+              <a class="btn btn-sm" href={`/admin/experience/${x.id}`}>
+                <Fragment set:html={icons.edit} />
+                Edit
+              </a>
+              <form method="post" data-confirm={`Hapus pengalaman "${x.role}"?`}>
+                <input type="hidden" name="action" value="delete" />
+                <input type="hidden" name="id" value={x.id} />
+                <button class="btn btn-icon btn-danger" type="submit" aria-label={`Hapus ${x.role}`}>
+                  <Fragment set:html={icons.trash} />
+                </button>
+              </form>
+            </div>
+          </div>
+        ))
+      )
+    }
+  </section>
+</AdminLayout>
+
+<script>
+  document.querySelectorAll<HTMLFormElement>("form[data-confirm]").forEach((form) => {
+    form.addEventListener("submit", (e) => {
+      if (!confirm(form.dataset.confirm ?? "Yakin?")) e.preventDefault();
+    });
+  });
+</script>

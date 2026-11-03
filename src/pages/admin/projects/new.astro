@@ -1,0 +1,47 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import ProjectForm from "@/components/admin/ProjectForm.astro";
+import { icons } from "@/lib/icons";
+import { saveProject, type ProjectInput } from "@/lib/admin";
+
+const { supabase } = Astro.locals;
+
+let values: ProjectInput = {
+  slug: "",
+  title: "",
+  summary: "",
+  role: "",
+  year: new Date().getFullYear(),
+  status: "Deployed",
+  stack: [],
+  repo_url: "",
+  demo_url: "",
+  problem: "",
+  solution: "",
+  result: "",
+  featured: false,
+  published: false,
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const result = await saveProject(supabase, await Astro.request.formData(), null);
+  if (result.ok) return Astro.redirect(`/admin/projects/${result.id}?ok=project-created`);
+  values = result.values;
+  errors = result.errors;
+}
+---
+
+<AdminLayout title="Proyek baru" active="projects">
+  <a class="back" href="/admin/projects">
+    <Fragment set:html={icons.arrowLeft} />
+    Semua proyek
+  </a>
+  <div class="page-head">
+    <div>
+      <h1>Proyek baru</h1>
+      <p class="lede">Simpan sebagai draf dulu kalau belum selesai. Proyek baru muncul paling atas.</p>
+    </div>
+  </div>
+  <ProjectForm values={values} coverUrl={null} errors={errors} isNew={true} />
+</AdminLayout>

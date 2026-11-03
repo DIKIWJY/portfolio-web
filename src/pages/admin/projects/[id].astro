@@ -1,0 +1,70 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import ProjectForm from "@/components/admin/ProjectForm.astro";
+import { icons } from "@/lib/icons";
+import { saveProject, type ProjectInput } from "@/lib/admin";
+import type { Project } from "@/lib/types";
+
+const { supabase } = Astro.locals;
+const { id } = Astro.params;
+
+const { data } = await supabase.from("projects").select("*").eq("id", id ?? "").maybeSingle();
+const project = data as Project | null;
+if (!project) return Astro.redirect("/admin/projects");
+
+let values: ProjectInput = { ...project };
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const result = await saveProject(supabase, await Astro.request.formData(), project);
+  if (result.ok) return Astro.redirect(`/admin/projects/${project.id}?ok=project-saved`);
+  values = result.values;
+  errors = result.errors;
+}
+---
+
+<AdminLayout title={`Edit: ${project.title}`} active="projects">
+  <a class="back" href="/admin/projects">
+    <Fragment set:html={icons.arrowLeft} />
+    Semua proyek
+  </a>
+  <div class="page-head">
+    <div>
+      <h1>Edit proyek</h1>
+      <p class="lede">{project.title}</p>
+    </div>
+    {
+      project.published && (
+        <a class="btn" href={`/projects/${project.slug}`} target="_blank" rel="noopener">
+          <Fragment set:html={icons.external} />
+          Buka halaman publik
+        </a>
+      )
+    }
+  </div>
+
+  <ProjectForm values={values} coverUrl={project.cover_url} errors={errors} isNew={false} />
+
+  <section class="panel" style="margin-top:24px">
+    <div class="panel-body" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div>
+        <h2 class="section-title">Hapus proyek</h2>
+        <p class="muted">Proyek dan gambar sampulnya dihapus permanen.</p>
+      </div>
+      <form method="post" action="/admin/projects" id="delete-form">
+        <input type="hidden" name="action" value="delete" />
+        <input type="hidden" name="id" value={project.id} />
+        <button class="btn btn-danger" type="submit">
+          <Fragment set:html={icons.trash} />
+          Hapus proyek
+        </button>
+      </form>
+    </div>
+  </section>
+</AdminLayout>
+
+<script>
+  document.getElementById("delete-form")?.addEventListener("submit", (e) => {
+    if (!confirm("Hapus proyek ini? Tindakan ini tidak bisa dibatalkan.")) e.preventDefault();
+  });
+</script>

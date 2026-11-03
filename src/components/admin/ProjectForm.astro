@@ -1,0 +1,371 @@
+---
+import { icons } from "@/lib/icons";
+import { initials } from "@/lib/format";
+import { PROJECT_STATUSES } from "@/lib/types";
+import type { ProjectInput } from "@/lib/admin";
+
+interface Props {
+  values: ProjectInput;
+  coverUrl: string | null;
+  errors?: Record<string, string>;
+  isNew: boolean;
+}
+
+const { values, coverUrl, errors = {}, isNew } = Astro.props;
+const stackText = values.stack.join(", ");
+---
+
+<form method="post" enctype="multipart/form-data" id="project-form" novalidate>
+  {
+    errors.form && (
+      <div class="alert" role="alert">
+        {errors.form}
+      </div>
+    )
+  }
+
+  <div class="editor">
+    <div class="stack-v">
+      <section class="panel">
+        <div class="panel-body stack-v">
+          <div>
+            <h2 class="section-title">Informasi utama</h2>
+            <p class="section-sub">Tampil di kartu proyek dan di bagian atas halaman detail.</p>
+          </div>
+
+          <div class="field">
+            <label for="title">Judul proyek</label>
+            <input
+              class="input"
+              id="title"
+              name="title"
+              value={values.title}
+              maxlength="120"
+              placeholder="Mis. Sistem Monitoring Dokumen SKBDN"
+              aria-invalid={errors.title ? "true" : undefined}
+              required
+            />
+            {errors.title && <span class="err">{errors.title}</span>}
+          </div>
+
+          <div class="field">
+            <label for="slug">Alamat halaman</label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="muted" style="white-space:nowrap">/projects/</span>
+              <input
+                class="input"
+                id="slug"
+                name="slug"
+                value={values.slug}
+                maxlength="80"
+                placeholder="dibuat-otomatis-dari-judul"
+                aria-invalid={errors.slug ? "true" : undefined}
+                data-auto={isNew ? "true" : "false"}
+              />
+            </div>
+            {errors.slug ? (
+              <span class="err">{errors.slug}</span>
+            ) : (
+              <span class="hint">Huruf kecil, angka, dan tanda hubung. Mengubahnya akan mengubah link proyek.</span>
+            )}
+          </div>
+
+          <div class="field">
+            <label for="summary">Ringkasan satu kalimat</label>
+            <textarea
+              class="textarea"
+              id="summary"
+              name="summary"
+              rows="3"
+              maxlength="280"
+              style="min-height:80px"
+              placeholder="Apa yang dibangun, untuk siapa, dan hasil utamanya."
+            >{values.summary}</textarea>
+            <span class="hint"><span id="summary-count">{values.summary.length}</span>/280 karakter</span>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="role">Peran Anda</label>
+              <input class="input" id="role" name="role" value={values.role} maxlength="80" placeholder="Fullstack developer" />
+            </div>
+            <div class="field">
+              <label for="year">Tahun</label>
+              <input
+                class="input"
+                id="year"
+                name="year"
+                inputmode="numeric"
+                value={values.year ?? ""}
+                maxlength="4"
+                placeholder="2026"
+                aria-invalid={errors.year ? "true" : undefined}
+              />
+              {errors.year && <span class="err">{errors.year}</span>}
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="status">Status</label>
+              <select class="select" id="status" name="status">
+                {
+                  PROJECT_STATUSES.map((s) => (
+                    <option value={s} selected={values.status === s}>
+                      {s}
+                    </option>
+                  ))
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label for="stack">Teknologi</label>
+              <input
+                class="input"
+                id="stack"
+                name="stack"
+                value={stackText}
+                placeholder="Astro, Supabase, TypeScript"
+              />
+              <span class="hint">Pisahkan dengan koma.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-body stack-v">
+          <div>
+            <h2 class="section-title">Studi kasus</h2>
+            <p class="section-sub">
+              Bagian ini yang paling dibaca recruiter. Gunakan baris kosong untuk memisahkan paragraf, dan sebut angka bila ada.
+            </p>
+          </div>
+
+          <div class="field">
+            <label for="problem">Masalah</label>
+            <textarea class="textarea" id="problem" name="problem" placeholder="Apa masalah atau kebutuhan awalnya?">{values.problem}</textarea>
+          </div>
+          <div class="field">
+            <label for="solution">Solusi</label>
+            <textarea class="textarea" id="solution" name="solution" placeholder="Apa yang Anda bangun dan keputusan teknis penting apa yang diambil?">{values.solution}</textarea>
+          </div>
+          <div class="field">
+            <label for="result">Hasil</label>
+            <textarea class="textarea" id="result" name="result" placeholder="Dampaknya: waktu yang dihemat, jumlah pengguna, atau pelajaran utama.">{values.result}</textarea>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-body stack-v">
+          <div>
+            <h2 class="section-title">Tautan</h2>
+            <p class="section-sub">Kosongkan yang tidak ada. Tombolnya otomatis disembunyikan.</p>
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="repo_url">Kode sumber</label>
+              <input
+                class="input"
+                id="repo_url"
+                name="repo_url"
+                type="url"
+                value={values.repo_url}
+                placeholder="https://github.com/username/repo"
+                aria-invalid={errors.repo_url ? "true" : undefined}
+              />
+              {errors.repo_url && <span class="err">{errors.repo_url}</span>}
+            </div>
+            <div class="field">
+              <label for="demo_url">Demo langsung</label>
+              <input
+                class="input"
+                id="demo_url"
+                name="demo_url"
+                type="url"
+                value={values.demo_url}
+                placeholder="https://proyek-anda.vercel.app"
+                aria-invalid={errors.demo_url ? "true" : undefined}
+              />
+              {errors.demo_url && <span class="err">{errors.demo_url}</span>}
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="editor-side">
+      <div>
+        <div class="preview-label">Pratinjau kartu <span>seperti di situs</span></div>
+        <div class="pcard">
+          <div class="pcard-cover">
+            <img id="pv-img" src={coverUrl ?? ""} alt="" hidden={!coverUrl} />
+            <div class="ph" id="pv-ph" hidden={Boolean(coverUrl)}>{initials(values.title || "P")}</div>
+          </div>
+          <div class="pcard-body">
+            <div class="pcard-title" id="pv-title">{values.title || "Judul proyek"}</div>
+            <div class="pcard-status" id="pv-status">{values.status}</div>
+            <p class="pcard-sum" id="pv-sum">{values.summary || "Ringkasan proyek akan tampil di sini."}</p>
+            <div class="chips" id="pv-stack">
+              {values.stack.slice(0, 4).map((s) => <span class="chip">{s}</span>)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-body stack-v">
+          <div class="field">
+            <span class="label-like">Gambar sampul</span>
+            <label class="dropzone" id="dropzone">
+              <input type="file" name="cover" id="cover" accept="image/jpeg,image/png,image/webp,image/avif" />
+              <Fragment set:html={icons.image} />
+              <strong style="color:var(--text)" id="dz-title">Pilih atau seret gambar</strong>
+              <span>JPG, PNG, WebP, AVIF. Maksimal 4 MB. Rasio 3:2 paling pas.</span>
+            </label>
+            {errors.cover && <span class="err">{errors.cover}</span>}
+            {
+              coverUrl && (
+                <label class="switch" style="margin-top:4px">
+                  <input type="checkbox" name="remove_cover" id="remove_cover" />
+                  <span class="t">Hapus gambar sampul<span class="d">Kartu akan memakai huruf inisial.</span></span>
+                </label>
+              )
+            }
+          </div>
+
+          <label class="switch">
+            <input type="checkbox" name="published" checked={values.published} />
+            <span class="t">Terbitkan<span class="d">Tampil di situs publik. Matikan untuk menyimpan sebagai draf.</span></span>
+          </label>
+
+          <label class="switch">
+            <input type="checkbox" name="featured" checked={values.featured} />
+            <span class="t">Unggulan<span class="d">Ditampilkan lebih dulu di beranda.</span></span>
+          </label>
+
+          <div class="savebar">
+            <a class="btn" href="/admin/projects">Batal</a>
+            <button class="btn btn-primary" type="submit">{isNew ? "Buat proyek" : "Simpan perubahan"}</button>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</form>
+
+<script>
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
+
+  const slugify = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80)
+      .replace(/-+$/g, "");
+
+  const initials = (s: string) =>
+    s.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "P";
+
+  const title = $<HTMLInputElement>("title")!;
+  const slug = $<HTMLInputElement>("slug")!;
+  const summary = $<HTMLTextAreaElement>("summary")!;
+  const status = $<HTMLSelectElement>("status")!;
+  const stack = $<HTMLInputElement>("stack")!;
+  const cover = $<HTMLInputElement>("cover")!;
+  const img = $<HTMLImageElement>("pv-img")!;
+  const ph = $<HTMLElement>("pv-ph")!;
+  const removeCover = $<HTMLInputElement>("remove_cover");
+
+  let slugTouched = slug.dataset.auto !== "true";
+  const originalCover = img.getAttribute("src") || "";
+
+  function paint() {
+    $("pv-title")!.textContent = title.value.trim() || "Judul proyek";
+    $("pv-status")!.textContent = status.value;
+    $("pv-sum")!.textContent = summary.value.trim() || "Ringkasan proyek akan tampil di sini.";
+    $("summary-count")!.textContent = String(summary.value.length);
+    ph.textContent = initials(title.value);
+
+    const chips = $("pv-stack")!;
+    chips.replaceChildren(
+      ...stack.value
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, 4)
+        .map((s) => {
+          const el = document.createElement("span");
+          el.className = "chip";
+          el.textContent = s;
+          return el;
+        }),
+    );
+  }
+
+  function showImage(src: string | null) {
+    if (src) {
+      img.src = src;
+      img.hidden = false;
+      ph.hidden = true;
+    } else {
+      img.removeAttribute("src");
+      img.hidden = true;
+      ph.hidden = false;
+    }
+  }
+
+  title.addEventListener("input", () => {
+    if (!slugTouched) slug.value = slugify(title.value);
+    paint();
+  });
+  slug.addEventListener("input", () => (slugTouched = true));
+  [summary, status, stack].forEach((el) => el.addEventListener("input", paint));
+
+  cover.addEventListener("change", () => {
+    const file = cover.files?.[0];
+    $("dz-title")!.textContent = file ? file.name : "Pilih atau seret gambar";
+    if (file) {
+      showImage(URL.createObjectURL(file));
+      if (removeCover) removeCover.checked = false;
+    } else {
+      showImage(originalCover || null);
+    }
+  });
+
+  removeCover?.addEventListener("change", () => {
+    if (removeCover.checked) {
+      cover.value = "";
+      showImage(null);
+    } else {
+      showImage(originalCover || null);
+    }
+  });
+
+  const dz = $("dropzone")!;
+  ["dragenter", "dragover"].forEach((t) =>
+    dz.addEventListener(t, (e) => {
+      e.preventDefault();
+      dz.classList.add("drag");
+    }),
+  );
+  ["dragleave", "drop"].forEach((t) =>
+    dz.addEventListener(t, (e) => {
+      e.preventDefault();
+      dz.classList.remove("drag");
+    }),
+  );
+  dz.addEventListener("drop", (e) => {
+    const files = (e as DragEvent).dataTransfer?.files;
+    if (files && files.length) {
+      cover.files = files;
+      cover.dispatchEvent(new Event("change"));
+    }
+  });
+
+  paint();
+</script>

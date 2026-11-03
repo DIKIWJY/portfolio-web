@@ -1,0 +1,38 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import ExperienceForm from "@/components/admin/ExperienceForm.astro";
+import { icons } from "@/lib/icons";
+import { saveExperience, type ExperienceInput } from "@/lib/admin";
+import type { Experience } from "@/lib/types";
+
+const { supabase } = Astro.locals;
+const { id } = Astro.params;
+
+const { data } = await supabase.from("experiences").select("*").eq("id", id ?? "").maybeSingle();
+const item = data as Experience | null;
+if (!item) return Astro.redirect("/admin/experience");
+
+let values: ExperienceInput = { ...item };
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const result = await saveExperience(supabase, await Astro.request.formData(), item);
+  if (result.ok) return Astro.redirect("/admin/experience?ok=experience-saved");
+  values = result.values;
+  errors = result.errors;
+}
+---
+
+<AdminLayout title={`Edit: ${item.role}`} active="experience">
+  <a class="back" href="/admin/experience">
+    <Fragment set:html={icons.arrowLeft} />
+    Semua pengalaman
+  </a>
+  <div class="page-head">
+    <div>
+      <h1>Edit pengalaman</h1>
+      <p class="lede">{item.role} di {item.company}</p>
+    </div>
+  </div>
+  <ExperienceForm values={values} errors={errors} isNew={false} />
+</AdminLayout>

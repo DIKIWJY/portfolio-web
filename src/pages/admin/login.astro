@@ -1,0 +1,133 @@
+---
+import "@/styles/admin.css";
+import { icons } from "@/lib/icons";
+import { isConfigured } from "@/lib/supabase";
+
+let error = "";
+let email = "";
+
+if (Astro.url.searchParams.get("error") === "forbidden") {
+  error = "Akun ini tidak punya akses admin.";
+}
+
+if (isConfigured && Astro.request.method === "POST") {
+  const fd = await Astro.request.formData();
+  email = String(fd.get("email") ?? "").trim();
+  const password = String(fd.get("password") ?? "");
+
+  if (!email || !password) {
+    error = "Isi email dan password.";
+  } else {
+    const { error: authError } = await Astro.locals.supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (authError) {
+      // Pesan dibuat spesifik supaya mudah menemukan penyebab login gagal.
+      const msg = authError.message.toLowerCase();
+      if (msg.includes("invalid login credentials")) {
+        error = "Email atau password salah. Pastikan user sudah dibuat di Supabase (Authentication → Users).";
+      } else if (msg.includes("email not confirmed")) {
+        error = "Email belum dikonfirmasi. Di Supabase buka Authentication → Users, lalu konfirmasi user ini (atau buat ulang dengan Auto Confirm User).";
+      } else if (msg.includes("invalid api key") || msg.includes("apikey")) {
+        error = "API key Supabase tidak valid. Periksa PUBLIC_SUPABASE_ANON_KEY di .env / Environment Variables Vercel.";
+      } else if (msg.includes("fetch failed") || msg.includes("network")) {
+        error = "Tidak bisa menghubungi Supabase. Periksa PUBLIC_SUPABASE_URL dan koneksi internet.";
+      } else {
+        error = `Login gagal: ${authError.message}`;
+      }
+    } else return Astro.redirect("/admin");
+  }
+}
+---
+
+<!doctype html>
+<html lang="id" class="admin">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <title>Masuk | Admin</title>
+  </head>
+  <body>
+    <div class="login">
+      <div class="login-card">
+        <div class="brand" style="padding:0">
+          <div class="brand-mark">
+            <Fragment set:html={icons.settings} />
+          </div>
+          <div>
+            <div class="brand-name">Panel admin</div>
+            <div class="brand-sub">Khusus pemilik portofolio</div>
+          </div>
+        </div>
+
+        <h1>Masuk</h1>
+
+        {
+          !isConfigured ? (
+            <div class="alert" role="alert">
+              <div>
+                Supabase belum terhubung. Salin <code>.env.example</code> menjadi{" "}
+                <code>.env</code>, isi <code>PUBLIC_SUPABASE_URL</code> dan{" "}
+                <code>PUBLIC_SUPABASE_ANON_KEY</code>, lalu jalankan ulang server.
+              </div>
+            </div>
+          ) : (
+            <form method="post" class="stack-v" novalidate>
+              {error && (
+                <div class="alert" role="alert">
+                  {error}
+                </div>
+              )}
+              <div class="field">
+                <label for="email">Email</label>
+                <input
+                  class="input"
+                  id="email"
+                  name="email"
+                  type="email"
+                  autocomplete="username"
+                  value={email}
+                  required
+                  autofocus
+                />
+              </div>
+              <div class="field">
+                <label for="password">Password</label>
+                <input
+                  class="input"
+                  id="password"
+                  name="password"
+                  type="password"
+                  autocomplete="current-password"
+                  required
+                />
+              </div>
+              <button class="btn btn-primary" type="submit" style="height:42px">
+                Masuk
+              </button>
+            </form>
+          )
+        }
+      </div>
+    </div>
+  </body>
+</html>
+
+<style is:global>
+  @font-face {
+    font-family: "Montserrat Variable";
+    src: url("/fonts/montserrat-latin-wght-normal.woff2") format("woff2-variations");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+  }
+  .admin code {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: #ffffff14;
+    font-size: 12.5px;
+  }
+</style>

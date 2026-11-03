@@ -1,0 +1,471 @@
+---
+import { DEFAULT_SETTINGS } from "@/lib/data";
+import { safeUrl } from "@/lib/format";
+import type { SiteSettings } from "@/lib/types";
+
+interface Props {
+  /** Judul halaman. Kosongkan untuk beranda. */
+  title?: string;
+  description?: string;
+  image?: string | null;
+  settings?: SiteSettings;
+  noindex?: boolean;
+}
+
+const {
+  title,
+  description,
+  image,
+  settings = DEFAULT_SETTINGS,
+  noindex = false,
+} = Astro.props;
+
+const origin = Astro.url.origin;
+const canonical = new URL(Astro.url.pathname, origin).href;
+const pageTitle = title
+  ? `${title} | ${settings.full_name}`
+  : `${settings.full_name} | ${settings.headline}`;
+const desc = description || settings.tagline;
+const ogImage = image || `${origin}/og.image.png`;
+const sameAs = [safeUrl(settings.github_url), safeUrl(settings.linkedin_url)].filter(Boolean);
+
+const jsonLd = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "Person",
+  name: settings.full_name,
+  url: origin,
+  image: `${origin}/og.image.png`,
+  sameAs,
+  jobTitle: settings.headline,
+  description: settings.tagline,
+}).replace(/</g, "\\u003c");
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={desc} />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {noindex && <meta name="robots" content="noindex" />}
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="canonical" href={canonical} />
+
+    <link
+      rel="preload"
+      href="/fonts/montserrat-latin-wght-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="preload"
+      href="/fonts/lora-latin-wght-normal.woff"
+      as="font"
+      type="font/woff"
+      crossorigin="anonymous"
+    />
+
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={desc} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={`${settings.full_name} Portfolio`} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script is:inline type="application/ld+json" set:html={jsonLd} />
+
+    <!-- Terapkan tema tersimpan sebelum halaman digambar, supaya tidak berkedip. -->
+    <script is:inline>
+      document.documentElement.classList.add("js");
+      try {
+        if (localStorage.getItem("theme") === "light") document.documentElement.dataset.theme = "light";
+      } catch (e) {}
+    </script>
+  </head>
+  <body class="bg-[--background] sm:px-28 lg:px-20 px-9">
+    <div class="prog" id="prog"></div>
+    <slot />
+  </body>
+</html>
+
+<script>
+  const root = document.documentElement;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* Tema terang/gelap: lingkaran melebar dari tombol. */
+  document.querySelectorAll<HTMLElement>("[data-theme-toggle]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const next = root.dataset.theme === "light" ? "dark" : "light";
+      const r = btn.getBoundingClientRect();
+      root.style.setProperty("--tx", `${r.left + r.width / 2}px`);
+      root.style.setProperty("--ty", `${r.top + r.height / 2}px`);
+      const apply = () => {
+        if (next === "light") root.dataset.theme = "light";
+        else delete root.dataset.theme;
+        try {
+          localStorage.setItem("theme", next);
+        } catch {
+          /* abaikan */
+        }
+      };
+      const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+      if (doc.startViewTransition && !reduce) doc.startViewTransition(apply);
+      else apply();
+    });
+  });
+
+  /* Garis progres scroll. */
+  const prog = document.getElementById("prog");
+  const onScroll = () => {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    if (prog) prog.style.transform = `scaleX(${max > 0 ? h.scrollTop / max : 0})`;
+  };
+  addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+
+  /* Elemen .rv muncul pelan saat masuk layar. */
+  const rv = document.querySelectorAll<HTMLElement>(".rv");
+  if ("IntersectionObserver" in window && !reduce) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            e.target.classList.add("in");
+            io.unobserve(e.target);
+          }
+        }
+      },
+      { rootMargin: "0px 0px -8% 0px", threshold: 0.08 },
+    );
+    rv.forEach((el) => io.observe(el));
+  } else {
+    rv.forEach((el) => el.classList.add("in"));
+  }
+
+  /* Cahaya mengikuti kursor di kartu proyek. */
+  document.addEventListener("pointermove", (e) => {
+    const card = (e.target as Element | null)?.closest?.(".spot") as HTMLElement | null;
+    if (!card) return;
+    const r = card.getBoundingClientRect();
+    card.style.setProperty("--mx", `${e.clientX - r.left}px`);
+    card.style.setProperty("--my", `${e.clientY - r.top}px`);
+  });
+
+  /* Angka sorotan menghitung naik saat terlihat. Teks akhir sudah ada di HTML. */
+  if (!reduce) {
+    document.querySelectorAll<HTMLElement>("[data-count]").forEach((el) => {
+      const m = (el.textContent ?? "").match(/^(\D*)(\d+)(.*)$/);
+      if (!m) return;
+      const pre = m[1] ?? "";
+      const suf = m[3] ?? "";
+      const end = Number(m[2]);
+      let done = false;
+      new IntersectionObserver(
+        (es, obs) => {
+          if (!es[0]?.isIntersecting || done) return;
+          done = true;
+          obs.disconnect();
+          const t0 = performance.now();
+          const step = (t: number) => {
+            const p = Math.min((t - t0) / 1200, 1);
+            el.textContent = `${pre}${Math.round(end * (1 - Math.pow(1 - p, 3)))}${suf}`;
+            if (p < 1) requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        },
+        { threshold: 0.6 },
+      ).observe(el);
+    });
+  }
+</script>
+
+<style is:global>
+  @font-face {
+    font-family: "Montserrat Variable";
+    src: url("/fonts/montserrat-latin-wght-normal.woff2")
+      format("woff2-variations");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  /* Judul: Lora (SIL OFL), serif editorial. Teks lain tetap Montserrat. */
+  @font-face {
+    font-family: "Lora Variable";
+    src: url("/fonts/lora-latin-wght-normal.woff") format("woff");
+    font-weight: 400 700;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  /* Gelap adalah tampilan utama. Terang aktif lewat tombol tema. */
+  :root {
+    --background: #101010;
+    --sec: #a476ff;
+    --pink: #a476ff;
+    --white: #dfdfdf;
+    --white-icon: #f3f3f398;
+    --white-icon-tr: #f3f3f310;
+    --component-bg: #101010;
+    --container: #101010;
+    --thumb: #2a2a2a;
+    --line: #ffffff10;
+    --line2: #ffffff1c;
+    --line3: #ffffff30;
+    --panel: #1414149c;
+    --panel-solid: #141414;
+    --on-sec: #14091f;
+    --shine: #eee5ff;
+    --ok: #a9ff5b;
+    --ok-bg: #a9ff5b0d;
+    --ok-border: #a9ff5b44;
+    --ok-text: #d6ffae;
+    --err: #ff9c9c;
+    --ph: #ffffff55;
+    --dot: #4a4a4a;
+    --sec-12: #a476ff22;
+    --sec-20: #a476ff33;
+    --sec-25: #a476ff40;
+    --font-display: "Lora Variable", "Iowan Old Style", Georgia, "Times New Roman", serif;
+    --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "IBM Plex Mono", Menlo, Consolas, monospace;
+    --font-body: "Montserrat Variable", -apple-system, system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --background: #ffffff;
+    --sec: #7a45f0;
+    --pink: #7a45f0;
+    --white: #0a0a0a;
+    --white-icon: #6b6b6b;
+    --white-icon-tr: #00000014;
+    --component-bg: #ffffff;
+    --container: #ffffff;
+    --thumb: #d4d4d4;
+    --line: #0000000d;
+    --line2: #00000018;
+    --line3: #00000030;
+    --panel: #ffffff;
+    --panel-solid: #ffffff;
+    --on-sec: #ffffff;
+    --shine: #c3a4ff;
+    --ok: #2f7a3a;
+    --ok-bg: #f0f7f1;
+    --ok-border: #2f7a3a40;
+    --ok-text: #2f7a3a;
+    --err: #c0392b;
+    --ph: #0a0a0a66;
+    --dot: #d0d0d0;
+    --sec-12: #7a45f014;
+    --sec-20: #7a45f02a;
+    --sec-25: #7a45f036;
+    color-scheme: light;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--white);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Judul bergaya editorial. Dipasang lewat kelas .display, bukan lewat tag,
+     supaya halaman admin tetap memakai font teks. */
+  .display,
+  .display * {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-optical-sizing: auto;
+  }
+
+  /* Label teknis kecil: monospace, huruf kapital. */
+  .mono {
+    font-family: var(--font-mono);
+    letter-spacing: 0.06em;
+  }
+
+  /* Label di atas judul bagian, dinomori otomatis: 01 / MY WORK. */
+  body {
+    counter-reset: sec;
+  }
+  .eyebrow {
+    counter-increment: sec;
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--sec);
+  }
+  .eyebrow::before {
+    content: "0" counter(sec) " / ";
+    color: var(--white-icon);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  * {
+    font-family: var(--font-body);
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+  }
+
+  *::selection {
+    background-color: var(--sec);
+    color: var(--background);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--sec);
+    outline-offset: 3px;
+  }
+
+  /* Scrollbar styles */
+
+  ::-webkit-scrollbar {
+    width: 15px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--container);
+    border-radius: 30px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--thumb);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--pink);
+  }
+
+  /* Scrollbar styles for Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--thumb) var(--container);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    * {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* ---------- Gerak halus ---------- */
+  .prog {
+    position: fixed;
+    inset: 0 0 auto 0;
+    height: 2px;
+    z-index: 200;
+    background: var(--sec);
+    transform-origin: 0 50%;
+    transform: scaleX(0);
+    pointer-events: none;
+  }
+
+  /* Muncul saat discroll. Hanya aktif bila JS jalan, jadi tanpa JS konten tetap terlihat. */
+  html.js .rv {
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+      opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    transition-delay: var(--d, 0s);
+  }
+  html.js .rv.in {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Kartu proyek: cahaya mengikuti kursor di atas sampul, kartu terangkat saat disentuh. */
+  .spot {
+    --mx: 50%;
+    --my: 50%;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .spot:hover {
+    transform: translateY(-3px);
+  }
+  .spot .cover::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.35s;
+    pointer-events: none;
+    background: radial-gradient(340px circle at var(--mx) var(--my), var(--sec-12), transparent 60%);
+  }
+  .spot:hover .cover::after {
+    opacity: 1;
+  }
+  .spot .cover {
+    transition:
+      border-color 0.3s,
+      box-shadow 0.3s;
+  }
+  .spot:hover .cover {
+    border-color: var(--line3);
+    box-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.18);
+  }
+
+  html.js .spot.in {
+    transition:
+      opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s),
+      transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  html.js .spot.in:hover {
+    transform: translateY(-3px);
+  }
+
+  /* Tombol merespons sentuhan. */
+  a[class*="h-12"]:active,
+  a[class*="h-14"]:active,
+  button:active {
+    transform: scale(0.98);
+  }
+
+  /* Tombol tema */
+  .theme-toggle .sun { display: block; }
+  .theme-toggle .moon { display: none; }
+  :root[data-theme="light"] .theme-toggle .sun { display: none; }
+  :root[data-theme="light"] .theme-toggle .moon { display: block; }
+
+  /* Transisi tema: lingkaran melebar dari tombol. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+  ::view-transition-new(root) {
+    animation: theme-wipe 0.7s cubic-bezier(0.65, 0, 0.25, 1);
+  }
+  @keyframes theme-wipe {
+    from { clip-path: circle(0 at var(--tx, 50%) var(--ty, 0)); }
+    to { clip-path: circle(150vmax at var(--tx, 50%) var(--ty, 0)); }
+  }
+
+  /* Logo yang putih saja perlu dibalik agar terlihat di tema terang. */
+  :root[data-theme="light"] img[src$="/bash.svg"],
+  :root[data-theme="light"] img[src$="/vercel.svg"] {
+    filter: invert(1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html.js .rv { opacity: 1; transform: none; transition: none; }
+    .spot, .spot:hover { transform: none; }
+  }
+</style>

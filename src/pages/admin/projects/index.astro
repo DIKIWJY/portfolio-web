@@ -1,0 +1,168 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { icons } from "@/lib/icons";
+import { initials } from "@/lib/format";
+import { moveProject, removeCover } from "@/lib/admin";
+import type { Project } from "@/lib/types";
+
+const { supabase } = Astro.locals;
+
+if (Astro.request.method === "POST") {
+  const fd = await Astro.request.formData();
+  const action = String(fd.get("action") ?? "");
+  const id = String(fd.get("id") ?? "");
+
+  if (id) {
+    if (action === "move") {
+      await moveProject(supabase, id, fd.get("dir") === "up" ? "up" : "down");
+      return Astro.redirect("/admin/projects?ok=project-moved");
+    }
+    if (action === "toggle") {
+      const field = fd.get("field") === "featured" ? "featured" : "published";
+      const next = fd.get("value") === "true";
+      await supabase.from("projects").update({ [field]: next }).eq("id", id);
+      return Astro.redirect("/admin/projects?ok=project-toggled");
+    }
+    if (action === "delete") {
+      const { data } = await supabase.from("projects").select("cover_url").eq("id", id).maybeSingle();
+      const { error } = await supabase.from("projects").delete().eq("id", id);
+      if (!error) await removeCover(supabase, data?.cover_url);
+      return Astro.redirect("/admin/projects?ok=project-deleted");
+    }
+  }
+}
+
+const { data } = await supabase
+  .from("projects")
+  .select("*")
+  .order("sort_order", { ascending: true })
+  .order("created_at", { ascending: false });
+const projects = (data ?? []) as Project[];
+---
+
+<AdminLayout title="Proyek" active="projects">
+  <div class="page-head">
+    <div>
+      <h1>Proyek</h1>
+      <p class="lede">
+        Urutan di sini sama dengan urutan di situs. Proyek unggulan tampil lebih dulu di beranda.
+      </p>
+    </div>
+    <a class="btn btn-primary" href="/admin/projects/new">
+      <Fragment set:html={icons.plus} />
+      Proyek baru
+    </a>
+  </div>
+
+  <section class="panel">
+    {
+      projects.length === 0 ? (
+        <div class="empty">
+          <strong>Belum ada proyek</strong>
+          <span>Mulai dari proyek terbaik Anda. Satu studi kasus yang rapi lebih berharga daripada lima proyek asal jadi.</span>
+          <a class="btn btn-primary" href="/admin/projects/new">
+            <Fragment set:html={icons.plus} />
+            Tambah proyek pertama
+          </a>
+        </div>
+      ) : (
+        projects.map((p, i) => (
+          <div class="prow">
+            <div class="thumb">
+              {p.cover_url ? (
+                <img src={p.cover_url} alt="" loading="lazy" />
+              ) : (
+                initials(p.title)
+              )}
+            </div>
+
+            <div style="min-width:0">
+              <a class="ptitle" href={`/admin/projects/${p.id}`} style="display:block">
+                {p.title}
+              </a>
+              <div class="pmeta">
+                <form method="post" style="display:contents">
+                  <input type="hidden" name="action" value="toggle" />
+                  <input type="hidden" name="id" value={p.id} />
+                  <input type="hidden" name="field" value="published" />
+                  <input type="hidden" name="value" value={String(!p.published)} />
+                  <button
+                    class:list={["pill", "toggle-pill", { live: p.published }]}
+                    type="submit"
+                    title={p.published ? "Klik untuk jadikan draf" : "Klik untuk terbitkan"}
+                  >
+                    {p.published ? "Terbit" : "Draf"}
+                  </button>
+                </form>
+                <form method="post" style="display:contents">
+                  <input type="hidden" name="action" value="toggle" />
+                  <input type="hidden" name="id" value={p.id} />
+                  <input type="hidden" name="field" value="featured" />
+                  <input type="hidden" name="value" value={String(!p.featured)} />
+                  <button
+                    class:list={["pill", "toggle-pill", { star: p.featured }]}
+                    type="submit"
+                    title={p.featured ? "Lepas dari unggulan" : "Jadikan unggulan"}
+                  >
+                    {p.featured ? "Unggulan" : "Biasa"}
+                  </button>
+                </form>
+                <span>{p.status}</span>
+                <span>/projects/{p.slug}</span>
+              </div>
+            </div>
+
+            <div class="actions">
+              <form method="post">
+                <input type="hidden" name="action" value="move" />
+                <input type="hidden" name="id" value={p.id} />
+                <input type="hidden" name="dir" value="up" />
+                <button class="btn btn-icon" type="submit" aria-label="Naikkan" disabled={i === 0}>
+                  <Fragment set:html={icons.up} />
+                </button>
+              </form>
+              <form method="post">
+                <input type="hidden" name="action" value="move" />
+                <input type="hidden" name="id" value={p.id} />
+                <input type="hidden" name="dir" value="down" />
+                <button
+                  class="btn btn-icon"
+                  type="submit"
+                  aria-label="Turunkan"
+                  disabled={i === projects.length - 1}
+                >
+                  <Fragment set:html={icons.down} />
+                </button>
+              </form>
+              {p.published && (
+                <a class="btn btn-sm" href={`/projects/${p.slug}`} target="_blank" rel="noopener">
+                  <Fragment set:html={icons.eye} />
+                  Lihat
+                </a>
+              )}
+              <a class="btn btn-sm" href={`/admin/projects/${p.id}`}>
+                <Fragment set:html={icons.edit} />
+                Edit
+              </a>
+              <form method="post" data-confirm={`Hapus proyek "${p.title}"? Tindakan ini tidak bisa dibatalkan.`}>
+                <input type="hidden" name="action" value="delete" />
+                <input type="hidden" name="id" value={p.id} />
+                <button class="btn btn-icon btn-danger" type="submit" aria-label={`Hapus ${p.title}`}>
+                  <Fragment set:html={icons.trash} />
+                </button>
+              </form>
+            </div>
+          </div>
+        ))
+      )
+    }
+  </section>
+</AdminLayout>
+
+<script>
+  document.querySelectorAll<HTMLFormElement>("form[data-confirm]").forEach((form) => {
+    form.addEventListener("submit", (e) => {
+      if (!confirm(form.dataset.confirm ?? "Yakin?")) e.preventDefault();
+    });
+  });
+</script>

@@ -1,0 +1,39 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import ExperienceForm from "@/components/admin/ExperienceForm.astro";
+import { icons } from "@/lib/icons";
+import { saveExperience, type ExperienceInput } from "@/lib/admin";
+
+const { supabase } = Astro.locals;
+
+let values: ExperienceInput = {
+  role: "",
+  company: "",
+  location: "",
+  period: "",
+  is_current: false,
+  summary: "",
+  published: true,
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const result = await saveExperience(supabase, await Astro.request.formData(), null);
+  if (result.ok) return Astro.redirect("/admin/experience?ok=experience-created");
+  values = result.values;
+  errors = result.errors;
+}
+---
+
+<AdminLayout title="Pengalaman baru" active="experience">
+  <a class="back" href="/admin/experience">
+    <Fragment set:html={icons.arrowLeft} />
+    Semua pengalaman
+  </a>
+  <div class="page-head">
+    <div>
+      <h1>Pengalaman baru</h1>
+    </div>
+  </div>
+  <ExperienceForm values={values} errors={errors} isNew={true} />
+</AdminLayout>

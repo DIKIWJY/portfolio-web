@@ -1,0 +1,22 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Nav from "@/components/nav.astro";
+import { getSettings } from "@/lib/data";
+
+const settings = await getSettings();
+Astro.response.status = 404;
+---
+
+<Layout title="Page not found" settings={settings} noindex>
+  <Nav prefix="/" cvUrl={settings.cv_url} />
+  <main class="max-w-5xl mx-auto text-[var(--white)] min-h-[80dvh] flex flex-col justify-center gap-6">
+    <p class="text-[var(--sec)] text-lg">404</p>
+    <h1 class="display text-4xl md:text-6xl leading-[1.1]">This page doesn't exist.</h1>
+    <p class="text-[var(--white-icon)] max-w-[45ch]">
+      The link may be broken, or the project is no longer published.
+    </p>
+    <div>
+      <a href="/" class="inline-flex items-center h-12 px-6 rounded-md border border-[var(--white-icon-tr)] bg-[color:var(--panel)] hover:bg-[var(--white-icon-tr)] transition">Back to home</a>
+    </div>
+  </main>
+</Layout>

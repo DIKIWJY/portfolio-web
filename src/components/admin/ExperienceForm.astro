@@ -1,0 +1,70 @@
+---
+import type { ExperienceInput } from "@/lib/admin";
+
+interface Props {
+  values: ExperienceInput;
+  errors?: Record<string, string>;
+  isNew: boolean;
+}
+
+const { values, errors = {}, isNew } = Astro.props;
+---
+
+<form method="post" novalidate style="max-width:760px">
+  {errors.form && <div class="alert" role="alert">{errors.form}</div>}
+
+  <div class="stack-v">
+    <section class="panel">
+      <div class="panel-body stack-v">
+        <div>
+          <h2 class="section-title">Detail pengalaman</h2>
+          <p class="section-sub">Boleh kerja, magang, organisasi, atau freelance. Yang penting nyata dan bisa Anda jelaskan.</p>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="role">Posisi</label>
+            <input class="input" id="role" name="role" value={values.role} maxlength="120" placeholder="Backend Developer Intern" aria-invalid={errors.role ? "true" : undefined} />
+            {errors.role && <span class="err">{errors.role}</span>}
+          </div>
+          <div class="field">
+            <label for="company">Perusahaan atau organisasi</label>
+            <input class="input" id="company" name="company" value={values.company} maxlength="120" placeholder="PT Contoh Teknologi" aria-invalid={errors.company ? "true" : undefined} />
+            {errors.company && <span class="err">{errors.company}</span>}
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="period">Periode</label>
+            <input class="input" id="period" name="period" value={values.period} maxlength="60" placeholder="Jan 2025 - Sekarang" />
+          </div>
+          <div class="field">
+            <label for="location">Lokasi</label>
+            <input class="input" id="location" name="location" value={values.location} maxlength="80" placeholder="Malang, Indonesia" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="summary">Apa yang Anda kerjakan dan capai</label>
+          <textarea class="textarea" id="summary" name="summary" maxlength="1500" placeholder={"Satu poin per baris.\nMembangun REST API untuk modul pembayaran, menurunkan waktu respons 40%.\nMenulis tes otomatis yang menaikkan cakupan dari 20% ke 70%."}>{values.summary}</textarea>
+          <span class="hint">Satu poin per baris, diawali kata kerja, dan sebut angka kalau ada.</span>
+        </div>
+
+        <label class="switch">
+          <input type="checkbox" name="is_current" checked={values.is_current} />
+          <span class="t">Masih berjalan<span class="d">Titik di garis waktu berwarna ungu.</span></span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" name="published" checked={values.published} />
+          <span class="t">Tampilkan di situs<span class="d">Matikan untuk menyimpannya sebagai draf.</span></span>
+        </label>
+      </div>
+    </section>
+
+    <div class="savebar" style="justify-content:flex-end">
+      <a class="btn" href="/admin/experience" style="flex:none">Batal</a>
+      <button class="btn btn-primary" type="submit" style="flex:none">{isNew ? "Tambah pengalaman" : "Simpan perubahan"}</button>
+    </div>
+  </div>
+</form>

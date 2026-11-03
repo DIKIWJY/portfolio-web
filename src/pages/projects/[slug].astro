@@ -1,0 +1,143 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Nav from "@/components/nav.astro";
+import Footer from "@/components/footer.astro";
+import { getProject, getProjects, getSettings } from "@/lib/data";
+import { paragraphs, safeUrl } from "@/lib/format";
+
+const { slug } = Astro.params;
+const project = slug ? await getProject(slug) : null;
+if (!project) return Astro.rewrite("/404");
+
+const [settings, all] = await Promise.all([getSettings(), getProjects()]);
+const index = all.findIndex((p) => p.id === project.id);
+const next = all.length > 1 ? all[(index + 1) % all.length] : null;
+
+const repo = safeUrl(project.repo_url);
+const demo = safeUrl(project.demo_url);
+
+const sections = [
+  { label: "The problem", body: paragraphs(project.problem) },
+  { label: "The solution", body: paragraphs(project.solution) },
+  { label: "The result", body: paragraphs(project.result) },
+].filter((s) => s.body.length > 0);
+
+const facts = [
+  { label: "Role", value: project.role },
+  { label: "Year", value: project.year ? String(project.year) : "" },
+  { label: "Status", value: project.status },
+].filter((f) => f.value);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=15, stale-while-revalidate=120",
+);
+
+const btn =
+  "inline-flex items-center gap-2 h-12 px-5 rounded-md border border-[var(--white-icon-tr)] bg-[color:var(--panel)] text-[var(--white)] hover:bg-[var(--white-icon-tr)] transition duration-300 ease-in-out font-medium";
+---
+
+<Layout
+  title={project.title}
+  description={project.summary || undefined}
+  image={project.cover_url}
+  settings={settings}
+>
+  <Nav prefix="/" cvUrl={settings.cv_url} />
+
+  <main class="max-w-5xl mx-auto text-[var(--white)] pt-8 md:pt-32 pb-16">
+    <a href="/projects" class="inline-flex items-center gap-2 text-[var(--white-icon)] hover:text-[var(--white)] transition-colors mb-10">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="size-4" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      All projects
+    </a>
+
+    <header class="max-w-3xl">
+      <h1 class="display text-4xl md:text-6xl leading-[1.08] text-balance">{project.title}</h1>
+      {project.summary && <p class="text-lg md:text-2xl text-[var(--white-icon)] mt-6 max-w-[50ch]">{project.summary}</p>}
+    </header>
+
+    {
+      (facts.length > 0 || project.stack.length > 0) && (
+        <dl class="mt-12 grid grid-cols-2 md:grid-cols-4 gap-y-6 border-y border-[color:var(--line)] py-6">
+          {facts.map((f) => (
+            <div>
+              <dt class="text-sm text-[var(--white-icon)]">{f.label}</dt>
+              <dd class="mt-1 font-medium">{f.value}</dd>
+            </div>
+          ))}
+          {project.stack.length > 0 && (
+            <div class="col-span-2">
+              <dt class="text-sm text-[var(--white-icon)]">Built with</dt>
+              <dd class="mt-2 flex flex-wrap gap-2">
+                {project.stack.map((s) => (
+                  <span class="text-sm px-3 py-1 rounded-full border border-[var(--white-icon-tr)] text-[var(--white)]">{s}</span>
+                ))}
+              </dd>
+            </div>
+          )}
+        </dl>
+      )
+    }
+
+    {
+      (repo || demo) && (
+        <div class="flex flex-wrap gap-3 mt-8">
+          {demo && (
+            <a href={demo} target="_blank" rel="noopener noreferrer" class={`${btn} !bg-[var(--sec)] !text-[color:var(--on-sec)] !border-transparent hover:brightness-110`}>
+              Live demo
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true"><path d="M16.0037 9.41421L7.39712 18.0208L5.98291 16.6066L14.5895 8H7.00373V6H18.0037V17H16.0037V9.41421Z" /></svg>
+            </a>
+          )}
+          {repo && (
+            <a href={repo} target="_blank" rel="noopener noreferrer" class={btn}>
+              Source code
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true"><path d="M24 12L18.3431 17.6569L16.9289 16.2426L21.1716 12L16.9289 7.75736L18.3431 6.34315L24 12ZM2.82843 12L7.07107 16.2426L5.65685 17.6569L0 12L5.65685 6.34315L7.07107 7.75736L2.82843 12ZM9.78845 21H7.66009L14.2116 3H16.3399L9.78845 21Z" /></svg>
+            </a>
+          )}
+        </div>
+      )
+    }
+
+    {
+      project.cover_url && (
+        <figure class="mt-12 rounded-xl overflow-hidden border border-[var(--white-icon-tr)] bg-[color:var(--panel-solid)]">
+          <img src={project.cover_url} alt={`Screenshot of ${project.title}`} class="w-full h-auto" decoding="async" />
+        </figure>
+      )
+    }
+
+    {
+      sections.length > 0 && (
+        <div class="mt-16 divide-y divide-[color:var(--line)] border-t border-[color:var(--line)]">
+          {sections.map((s) => (
+            <section class="grid md:grid-cols-[220px_1fr] gap-4 md:gap-12 py-10">
+              <h2 class="text-xl font-medium text-[var(--sec)] md:sticky md:top-28 self-start">{s.label}</h2>
+              <div class="space-y-5 text-[var(--white)] text-[17px] leading-relaxed max-w-[68ch] opacity-90">
+                {s.body.map((para) => (
+                  <p>{para}</p>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )
+    }
+
+    {
+      next && (
+        <a
+          href={`/projects/${next.slug}`}
+          class="group mt-8 flex items-center justify-between gap-6 rounded-xl border border-[var(--white-icon-tr)] bg-[color:var(--panel)] p-6 md:p-8 hover:bg-[var(--white-icon-tr)] transition duration-300"
+        >
+          <div class="min-w-0">
+            <p class="text-sm text-[var(--white-icon)]">Next project</p>
+            <p class="text-2xl md:text-3xl font-medium mt-1 truncate">{next.title}</p>
+          </div>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="size-8 shrink-0 text-[var(--white-icon)] group-hover:translate-x-1 transition-transform" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+      )
+    }
+  </main>
+
+  <Footer settings={settings} />
+</Layout>

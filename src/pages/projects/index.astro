@@ -1,0 +1,44 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Nav from "@/components/nav.astro";
+import Footer from "@/components/footer.astro";
+import ProjectCard from "@/components/ProjectCard.astro";
+import { featuredFirst, getProjects, getSettings } from "@/lib/data";
+
+const [settings, all] = await Promise.all([getSettings(), getProjects()]);
+const projects = featuredFirst(all);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=15, stale-while-revalidate=120",
+);
+---
+
+<Layout
+  title="Projects"
+  description={`Selected projects by ${settings.full_name}.`}
+  settings={settings}
+>
+  <Nav prefix="/" cvUrl={settings.cv_url} />
+  <main class="max-w-5xl mx-auto text-[var(--white)] pt-8 md:pt-32 pb-16">
+    <h1 class="display text-4xl md:text-5xl leading-[1.1] mb-3">Projects</h1>
+    <p class="text-[var(--white-icon)] mb-12 max-w-[55ch]">
+      A selection of things I've built, with the problem each one solved.
+    </p>
+
+    {
+      projects.length === 0 ? (
+        <p class="text-[var(--white-icon)] border border-dashed border-[var(--white-icon-tr)] rounded-xl p-10 text-center">
+          Projects will appear here soon.
+        </p>
+      ) : (
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12">
+          {projects.map((p, i) => (
+            <ProjectCard project={p} index={i} />
+          ))}
+        </div>
+      )
+    }
+  </main>
+  <Footer settings={settings} />
+</Layout>

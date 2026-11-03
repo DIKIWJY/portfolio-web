@@ -1,0 +1,51 @@
+---
+import { paragraphs } from "@/lib/format";
+import type { SiteSettings } from "@/lib/types";
+
+interface Props {
+  settings: SiteSettings;
+}
+const { settings } = Astro.props;
+const about = paragraphs(settings.about);
+const skills = settings.skills;
+---
+
+{
+  (about.length > 0 || skills.length > 0) && (
+    <section id="about" class="py-20 md:py-28 border-t border-[color:var(--line)] text-[var(--white)]">
+      <div class="max-w-5xl mx-auto grid md:grid-cols-[240px_1fr] gap-4 md:gap-12">
+        <div>
+          <h2 class="eyebrow mb-3 rv">Get to know me</h2>
+          <h3 class="display text-4xl leading-[1.1] rv" style="--d:.08s">About</h3>
+        </div>
+
+        <div class="space-y-10 min-w-0">
+          {about.length > 0 && (
+            <div class="rv space-y-5 text-[17px] md:text-lg leading-relaxed max-w-[62ch] opacity-90">
+              {about.map((p) => (
+                <p>{p}</p>
+              ))}
+            </div>
+          )}
+
+          {skills.length > 0 && (
+            <dl class="border-t border-[color:var(--line)]">
+              {skills.map((g) => (
+                <div class="rv grid sm:grid-cols-[150px_1fr] gap-2 sm:gap-6 py-5 border-b border-[color:var(--line)]">
+                  <dt class="font-medium text-[var(--white)]">{g.group}</dt>
+                  <dd class="flex flex-wrap gap-2">
+                    {g.items.map((i) => (
+                      <span class="mono text-[11px] uppercase px-3 py-1 rounded-full border border-[var(--white-icon-tr)] text-[var(--white-icon)] hover:text-[var(--white)] hover:border-[color:var(--line3)] transition-colors">
+                        {i}
+                      </span>
+                    ))}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}

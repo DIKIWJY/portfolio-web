@@ -1,0 +1,146 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { icons } from "@/lib/icons";
+import { getSettings, DEFAULT_SETTINGS } from "@/lib/data";
+import { timeAgo } from "@/lib/format";
+import type { Experience, Message, Project } from "@/lib/types";
+
+const { supabase } = Astro.locals;
+
+const [{ data: projectRows }, { data: experienceRows }, { data: messageRows }, settings] = await Promise.all([
+  supabase.from("projects").select("*"),
+  supabase.from("experiences").select("id, published"),
+  supabase.from("messages").select("*").order("created_at", { ascending: false }).limit(50),
+  getSettings(),
+]);
+
+const projects = (projectRows ?? []) as Project[];
+const messages = (messageRows ?? []) as Message[];
+const experiences = (experienceRows ?? []) as Pick<Experience, "id" | "published">[];
+
+const published = projects.filter((p) => p.published);
+const drafts = projects.length - published.length;
+const unread = messages.filter((m) => !m.is_read).length;
+const recent = messages.slice(0, 5);
+
+const checks = [
+  {
+    label: "Nama dan headline sudah diisi",
+    done: settings.full_name !== DEFAULT_SETTINGS.full_name && settings.headline.trim() !== "",
+    href: "/admin/settings",
+  },
+  {
+    label: "Angka sorotan dan keahlian terisi",
+    done: settings.highlights.length >= 2 && settings.skills.length >= 1,
+    href: "/admin/settings",
+  },
+  {
+    label: "Link GitHub dan LinkedIn terpasang",
+    done: Boolean(settings.github_url && settings.linkedin_url),
+    href: "/admin/settings",
+  },
+  {
+    label: "Link CV bisa diunduh",
+    done: Boolean(settings.cv_url),
+    href: "/admin/settings",
+  },
+  {
+    label: "Minimal 1 pengalaman tampil",
+    done: experiences.some((e) => e.published),
+    href: "/admin/experience/new",
+  },
+  {
+    label: "Minimal 3 proyek terbit",
+    done: published.length >= 3,
+    href: "/admin/projects/new",
+  },
+  {
+    label: "Setiap proyek terbit punya gambar sampul",
+    done: published.length > 0 && published.every((p) => p.cover_url),
+    href: "/admin/projects",
+  },
+  {
+    label: "Setiap proyek terbit punya studi kasus",
+    done:
+      published.length > 0 &&
+      published.every((p) => p.problem && p.solution && p.result),
+    href: "/admin/projects",
+  },
+];
+const doneCount = checks.filter((c) => c.done).length;
+---
+
+<AdminLayout title="Ringkasan" active="overview">
+  <div class="page-head">
+    <div>
+      <h1>Ringkasan</h1>
+      <p class="lede">Kondisi portofolio Anda dan hal yang perlu dibereskan sebelum melamar kerja.</p>
+    </div>
+    <a class="btn btn-primary" href="/admin/projects/new">
+      <Fragment set:html={icons.plus} />
+      Proyek baru
+    </a>
+  </div>
+
+  <div class="figures">
+    <div class="figure"><b>{published.length}</b><span>Proyek terbit</span></div>
+    <div class="figure"><b>{drafts}</b><span>Draf</span></div>
+    <div class="figure"><b>{unread}</b><span>Pesan belum dibaca</span></div>
+  </div>
+
+  <div class="cols">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Pesan terbaru</h2>
+        <a class="btn btn-sm btn-ghost" href="/admin/messages">Lihat semua</a>
+      </div>
+      {
+        recent.length === 0 ? (
+          <div class="empty">
+            <strong>Belum ada pesan</strong>
+            <span>Pesan dari form kontak di situs Anda akan muncul di sini.</span>
+          </div>
+        ) : (
+          <div class="list">
+            {recent.map((m) => (
+              <a class="item" href="/admin/messages">
+                <div class="item-top">
+                  <span class="item-title">
+                    {!m.is_read && <span class="dot" title="Belum dibaca" />}
+                    {m.name}
+                  </span>
+                  <span class="muted">{timeAgo(m.created_at)}</span>
+                </div>
+                <span class="item-excerpt">{m.message}</span>
+              </a>
+            ))}
+          </div>
+        )
+      }
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Kelengkapan portofolio</h2>
+        <span class="muted">{doneCount} dari {checks.length}</span>
+      </div>
+      <div class="checklist">
+        {
+          checks.map((c) => (
+            <div class:list={["check", { done: c.done }]}>
+              <span class="tick">
+                <Fragment set:html={icons.check} />
+              </span>
+              <span class="label">{c.label}</span>
+              {!c.done && (
+                <a class="fix" href={c.href}>
+                  Perbaiki
+                </a>
+              )}
+            </div>
+          ))
+        }
+      </div>
+    </section>
+  </div>
+</AdminLayout>

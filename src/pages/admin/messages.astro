@@ -1,0 +1,111 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { icons } from "@/lib/icons";
+import { timeAgo, formatDate } from "@/lib/format";
+import type { Message } from "@/lib/types";
+
+const { supabase } = Astro.locals;
+
+if (Astro.request.method === "POST") {
+  const fd = await Astro.request.formData();
+  const id = String(fd.get("id") ?? "");
+  const action = String(fd.get("action") ?? "");
+  if (id) {
+    if (action === "read" || action === "unread") {
+      await supabase.from("messages").update({ is_read: action === "read" }).eq("id", id);
+      return Astro.redirect("/admin/messages?ok=message-updated");
+    }
+    if (action === "delete") {
+      await supabase.from("messages").delete().eq("id", id);
+      return Astro.redirect("/admin/messages?ok=message-deleted");
+    }
+  }
+}
+
+const { data } = await supabase
+  .from("messages")
+  .select("*")
+  .order("created_at", { ascending: false });
+const messages = (data ?? []) as Message[];
+const unread = messages.filter((m) => !m.is_read).length;
+---
+
+<AdminLayout title="Pesan" active="messages">
+  <div class="page-head">
+    <div>
+      <h1>Pesan</h1>
+      <p class="lede">
+        {
+          messages.length === 0
+            ? "Pesan dari form kontak situs Anda."
+            : `${messages.length} pesan, ${unread} belum dibaca.`
+        }
+      </p>
+    </div>
+  </div>
+
+  <section class="panel">
+    {
+      messages.length === 0 ? (
+        <div class="empty">
+          <strong>Belum ada pesan</strong>
+          <span>Saat seseorang mengisi form kontak, pesannya masuk ke sini.</span>
+        </div>
+      ) : (
+        <div class="list">
+          {messages.map((m) => (
+            <details class:list={["msg", { unread: !m.is_read }]}>
+              <summary>
+                <div class="item-top">
+                  <span class="item-title">
+                    {!m.is_read && <span class="dot" title="Belum dibaca" />}
+                    {m.name}
+                    <span class="muted" style="font-weight:400">{m.email}</span>
+                  </span>
+                  <span class="muted">{timeAgo(m.created_at)}</span>
+                </div>
+                <span class="item-excerpt">{m.message}</span>
+              </summary>
+              <div class="msg-body">
+                <p class="msg-text">{m.message}</p>
+                <div class="muted" style="font-size:12.5px">Diterima {formatDate(m.created_at)}</div>
+                <div class="actions">
+                  <a
+                    class="btn btn-sm btn-primary"
+                    href={`mailto:${m.email}?subject=${encodeURIComponent("Re: pesan dari portofolio")}`}
+                  >
+                    <Fragment set:html={icons.mail} />
+                    Balas lewat email
+                  </a>
+                  <form method="post">
+                    <input type="hidden" name="id" value={m.id} />
+                    <input type="hidden" name="action" value={m.is_read ? "unread" : "read"} />
+                    <button class="btn btn-sm" type="submit">
+                      {m.is_read ? "Tandai belum dibaca" : "Tandai sudah dibaca"}
+                    </button>
+                  </form>
+                  <form method="post" data-confirm="Hapus pesan ini?">
+                    <input type="hidden" name="id" value={m.id} />
+                    <input type="hidden" name="action" value="delete" />
+                    <button class="btn btn-sm btn-danger" type="submit">
+                      <Fragment set:html={icons.trash} />
+                      Hapus
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </details>
+          ))}
+        </div>
+      )
+    }
+  </section>
+</AdminLayout>
+
+<script>
+  document.querySelectorAll<HTMLFormElement>("form[data-confirm]").forEach((form) => {
+    form.addEventListener("submit", (e) => {
+      if (!confirm(form.dataset.confirm ?? "Yakin?")) e.preventDefault();
+    });
+  });
+</script>
